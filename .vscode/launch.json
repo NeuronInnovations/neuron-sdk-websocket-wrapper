@@ -1,0 +1,53 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Node-RED seller",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            
+            "program": "${workspaceRoot}",
+            "env": {},
+            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=seller","--envFile=.seller-env"  ],
+            "cwd": "${workspaceRoot}", 
+            "showLog": false
+        },
+        {
+            "name": "Node-RED buyer",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceRoot}",
+            "env": {},
+            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env" ],
+            "cwd": "${workspaceRoot}", 
+            "showLog": false
+        },
+        {
+            "name": "Local Node-RED seller",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceRoot}",
+            "env": {},
+            "args": ["--port=1354", "--mode=peer", "--buyer-or-seller=seller", "--envFile=.seller-env", "--use-local-address", "--proxy-port=3001"],
+            "cwd": "${workspaceRoot}", 
+            "showLog": false
+        },
+        {
+            "name": "Local Node-RED buyer",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceRoot}",
+            "env": {},
+            "args": ["--port=1355", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env", "--use-local-address", "--proxy-port=3002"],
+            "cwd": "${workspaceRoot}", 
+            "showLog": false
+        }
+    ]
+}

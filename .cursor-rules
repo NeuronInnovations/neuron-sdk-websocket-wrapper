@@ -1,0 +1,88 @@
+ # Cursor Rules for Neuron Node-RED SDK Wrapper
+
+## Main Dependency
+The primary dependency of this project is the Neuron Go Hedera SDK:
+```
+github.com/NeuronInnovations/neuron-go-hedera-sdk
+```
+
+## Development Guidelines
+
+1. Always consult the Neuron Go Hedera SDK documentation and source code when:
+   - Implementing new features
+   - Modifying existing functionality
+   - Debugging issues
+   - Adding new dependencies
+
+2. SDK Version Management:
+   - Keep the SDK version up to date in go.mod
+   - Document any SDK version changes in commit messages
+   - Test thoroughly when updating the SDK version
+
+3. Code Structure:
+   - Follow the SDK's patterns and conventions
+   - Maintain compatibility with SDK interfaces
+   - Use SDK types and constants when available
+
+4. Testing:
+   - Test against the same SDK version used in production
+   - Include SDK version in test environment setup
+   - Verify compatibility with SDK updates
+
+## Important Notes
+
+- This project is a wrapper around the Neuron Go Hedera SDK
+- All core functionality should be implemented through the SDK
+- Direct modifications to SDK behavior should be avoided
+- Custom implementations should extend, not replace, SDK functionality
+
+## Main purpose of the wrapper
+The wrapper exposes websocket access to the neuron-go-hedera-sdk. The sdk itself is a golang program that does not expose websockets. In particular, we implement LaunchSDK so that:
+
+### Buyer Case
+- buyerCase exposes three websocket endpoints:
+  - /buyer/p2p - For P2P communication
+  - /buyer/stdout - For standard output streaming 
+  - /buyer/stderr - For error output streaming
+
+### Buyer Topic Listener
+- buyerCaseTopicListener exposes:
+  - /buyer/stdin - For standard input streaming
+
+### Seller Case
+- sellerCase exposes three websocket endpoints:
+  - /seller/p2p - For P2P communication
+  - /seller/stdout - For standard output streaming
+  - /seller/stderr - For error output streaming
+
+### Seller Topic Listener
+- sellerCaseTopicListener exposes:
+  - /seller/stdin - For standard input streaming
+
+## Websocket Endpoints
+
+### Buyer Endpoints
+- `/buyer/p2p` - WebSocket endpoint for P2P communication
+- `/buyer/stdout` - WebSocket endpoint for standard output streaming
+- `/buyer/stderr` - WebSocket endpoint for error output streaming
+- `/buyer/stdin` - WebSocket endpoint for standard input streaming
+
+### Seller Endpoints
+- `/seller/p2p` - WebSocket endpoint for P2P communication
+- `/seller/stdout` - WebSocket endpoint for standard output streaming
+- `/seller/stderr` - WebSocket endpoint for error output streaming
+- `/seller/stdin` - WebSocket endpoint for standard input streaming
+
+### WebSocket Message Format
+- All messages should be JSON formatted
+- Required fields:
+  - `type`: Message type (e.g., "p2p", "stdin", "stdout", "stderr")
+  - `data`: Message payload
+  - `timestamp`: Unix timestamp in milliseconds
+
+### WebSocket Connection Requirements
+- All connections must be established with proper authentication
+- Connections should be kept alive using ping/pong messages
+- Reconnection logic should be implemented on the client side
+- Error handling should be implemented for all endpoints
+

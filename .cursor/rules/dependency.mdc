@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Include local copy of the sdk located in ../neuron-go-hedera-sdk 
