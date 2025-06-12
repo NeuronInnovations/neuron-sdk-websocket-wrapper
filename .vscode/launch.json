@@ -12,7 +12,7 @@
             
             "program": "${workspaceRoot}",
             "env": {},
-            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=seller","--envFile=.seller-env"  ],
+            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=seller","--envFile=.seller-env", "--ws-port=3001"  ],
             "cwd": "${workspaceRoot}", 
             "showLog": false
         },
@@ -23,7 +23,7 @@
             "mode": "debug",
             "program": "${workspaceRoot}",
             "env": {},
-            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env" ],
+            "args": ["--port=1352", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env", "--ws-port=3002" ],
             "cwd": "${workspaceRoot}", 
             "showLog": false
         },
@@ -34,7 +34,7 @@
             "mode": "debug",
             "program": "${workspaceRoot}",
             "env": {},
-            "args": ["--port=1354", "--mode=peer", "--buyer-or-seller=seller", "--envFile=.seller-env", "--use-local-address", "--proxy-port=3001"],
+            "args": ["--port=1354", "--mode=peer", "--buyer-or-seller=seller", "--envFile=.seller-env", "--use-local-address", "--ws-port=3001"],
             "cwd": "${workspaceRoot}", 
             "showLog": false
         },
@@ -45,7 +45,7 @@
             "mode": "debug",
             "program": "${workspaceRoot}",
             "env": {},
-            "args": ["--port=1355", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env", "--use-local-address", "--proxy-port=3002"],
+            "args": ["--port=1355", "--mode=peer", "--buyer-or-seller=buyer", "--list-of-sellers-source=env", "--envFile=.buyer-env", "--use-local-address", "--ws-port=3002"],
             "cwd": "${workspaceRoot}", 
             "showLog": false
         }

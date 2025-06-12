@@ -1,14 +1,89 @@
 # Neuron Node-RED SDK Wrapper
 
-Neuron Node-RED SDK Wrapper is a service that facilitates secure communication between buyers and sellers in the Neuron Network. It acts as a bridge between Node-RED clients and the Neuron Network's P2P infrastructure, handling connection establishment, message routing, and payment processing.
+This project provides a wrapper for the Neuron SDK, enabling seamless integration with Node-RED through WebSocket connections. It implements the P2P communication protocol defined in the Neuron SDK, allowing for real-time data exchange between buyers and sellers.
 
 ## Features
 
-- Seamless Node-RED integration for Neuron Network communication
-- Automatic connection management using seller public keys
-- Support for both regular HTTP and Server-Sent Events (SSE)
-- Secure P2P communication using libp2p
-- Integration with Hedera for payment processing
+- WebSocket endpoints for P2P communication
+- Real-time message streaming
+- Support for both buyer and seller roles
+- Integration with Node-RED
+- Secure P2P communication
+
+## WebSocket Endpoints
+
+The wrapper exposes the following WebSocket endpoints:
+
+### Buyer Endpoints
+- `ws://localhost:3002/buyer/p2p` - P2P communication endpoint
+- `ws://localhost:3002/buyer/stdout` - Standard output stream
+- `ws://localhost:3002/buyer/stderr` - Standard error stream
+- `ws://localhost:3002/buyer/stdin` - Standard input stream
+
+### Seller Endpoints
+- `ws://localhost:3001/buyer/p2p` - P2P communication endpoint
+- `ws://localhost:3001/buyer/stdout` - Standard output stream
+- `ws://localhost:3001/buyer/stderr` - Standard error stream
+- `ws://localhost:3001/buyer/stdin` - Standard input stream
+
+## Message Format
+
+All WebSocket messages must follow this JSON format:
+```json
+{
+    "type": "p2p",
+    "data": "your message here",
+    "timestamp": 1234567890
+}
+```
+
+## Sending Messages
+
+### Using wscat
+
+For interactive WebSocket testing, you can use wscat:
+
+```bash
+# Install wscat
+npm install -g wscat
+
+# Connect to buyer P2P endpoint (port 3002)
+wscat -c ws://localhost:3002/buyer/p2p
+
+# Connect to seller P2P endpoint (port 3001)
+wscat -c ws://localhost:3001/seller/p2p
+
+# Once connected, send a message:
+{"type":"p2p","data":"Hello from wscat!","timestamp":1234567890}
+```
+
+### Using Node-RED
+
+In Node-RED, you can use the WebSocket nodes to connect to these endpoints:
+
+1. Add a WebSocket out node
+2. Configure it to connect to:
+   - Buyer: `ws://localhost:3002/buyer/p2p`
+   - Seller: `ws://localhost:3001/seller/p2p`
+3. Set the message format to:
+```json
+{
+    "type": "p2p",
+    "data": "{{your message}}",
+    "timestamp": {{$timestamp}}
+}
+```
+
+## Development Guidelines
+
+1. **Message Format**: Always use the specified JSON format
+2. **Error Handling**: Implement proper error handling for all operations
+3. **Logging**: Use appropriate logging levels for debugging
+4. **Testing**: Test all endpoints before deployment
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Prerequisites
 
