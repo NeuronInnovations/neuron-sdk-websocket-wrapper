@@ -166,7 +166,7 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 						hedera_msg.PeerSendErrorMessage(
 							bufferInfo.RequestOrResponse.OtherStdInTopic,
 							types.WriteError,
-							"Failed to send message: "+sendError.Error(),
+							"Failed to send message: "+sendError.Error()+string(msgBytes),
 							types.SendFreshHederaRequest,
 						)
 						log.Printf("Error sending to peer %s: %v\n", peerID, sendError)
