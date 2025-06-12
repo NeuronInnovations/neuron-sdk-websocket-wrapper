@@ -71,16 +71,55 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request, messageChan chan WS
 	}
 }
 
+// Handle P2P messages from WebSocket and forward to peers
+func handleP2PMessages(ctx context.Context, b *commonlib.NodeBuffers, messageChan chan WSMessage) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-messageChan:
+				// Convert message to bytes
+				msgBytes := []byte(msg.Data.(string) + "\n")
+
+				// Send to all connected peers
+				for peerID, bufferInfo := range b.GetBufferMap() {
+					log.Printf("Sending message to peer %s\n", peerID)
+
+					// Send the message using the p2p stream
+					sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, peerID, b, msgBytes)
+					if sendError != nil {
+						// Send the public connectivity error message for the other peer's sdk to handle
+						hedera_msg.PeerSendErrorMessage(
+							bufferInfo.RequestOrResponse.OtherStdInTopic,
+							types.WriteError,
+							"Failed to send message: "+sendError.Error(),
+							types.SendFreshHederaRequest,
+						)
+						log.Printf("Error sending to peer %s: %v\n", peerID, sendError)
+						continue
+					}
+					log.Printf("Successfully sent message to peer %s\n", peerID)
+				}
+			}
+		}
+	}()
+}
+
 func main() {
 	// Parse command line flags
 	pflag.Parse()
 
-	// Create channel for buyer P2P messages
+	// Create channels for P2P messages
 	buyerP2PChan := make(chan WSMessage)
+	sellerP2PChan := make(chan WSMessage)
 
-	// Set up HTTP route for buyer P2P
+	// Set up HTTP routes for P2P
 	http.HandleFunc("/buyer/p2p", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r, buyerP2PChan)
+	})
+	http.HandleFunc("/seller/p2p", func(w http.ResponseWriter, r *http.Request) {
+		handleWebSocket(w, r, sellerP2PChan)
 	})
 
 	// Start HTTP server
@@ -97,38 +136,7 @@ func main() {
 		Protocol, // Specify a protocol ID
 		nil,      // leave nil if you don't need custom key configuration logic
 		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define buyer case logic here (if required)
-			// Handle incoming websocket messages and forward them to connected peers
-			go func() {
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					case msg := <-buyerP2PChan:
-						// Convert message to bytes
-						msgBytes := []byte(msg.Data.(string) + "\n")
-
-						// Send to all connected peers
-						for peerID, bufferInfo := range b.GetBufferMap() {
-							log.Printf("Sending message to peer %s\n", peerID)
-
-							// Send the message using the p2p stream
-							sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, peerID, b, msgBytes)
-							if sendError != nil {
-								// Send the public connectivity error message for the other peer's sdk to handle
-								hedera_msg.PeerSendErrorMessage(
-									bufferInfo.RequestOrResponse.OtherStdInTopic,
-									types.WriteError,
-									"Failed to send message: "+sendError.Error(),
-									types.SendFreshHederaRequest,
-								)
-								log.Printf("Error sending to peer %s: %v\n", peerID, sendError)
-								continue
-							}
-							log.Printf("Successfully sent message to peer %s\n", peerID)
-						}
-					}
-				}
-			}()
+			handleP2PMessages(ctx, b, buyerP2PChan)
 		},
 		func(msg hedera.TopicMessage) { // Define buyer topic callback logic here (if required)
 			// Handle buyer topic messages
@@ -139,10 +147,15 @@ func main() {
 			}
 		},
 		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define seller case logic here (if required)
-			// Set up the websocket for the seller case
+			handleP2PMessages(ctx, b, sellerP2PChan)
 		},
 		func(msg hedera.TopicMessage) {
-			// Define seller topic callback logic here (if required)
+			// Handle seller topic messages
+			sellerP2PChan <- WSMessage{
+				Type:      "p2p",
+				Data:      string(msg.Contents),
+				Timestamp: time.Now().UnixMilli(),
+			}
 		},
 	)
 }
