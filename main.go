@@ -83,67 +83,84 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request, wsToP2P chan WSMess
 	}
 }
 
-// Handle P2P messages from WebSocket and forward to peers
-func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, wsToP2P chan WSMessage, p2pToWS chan WSMessage) {
-	// Set up stream handler for incoming P2P messages
-	h.SetStreamHandler(Protocol, func(stream network.Stream) {
-		defer stream.Close()
-		peerID := stream.Conn().RemotePeer()
-		b.SetStreamHandler(peerID, &stream)
-		streamReader := bufio.NewReader(stream)
+// handleStream processes incoming messages from a P2P stream
+func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan WSMessage) {
+	defer stream.Close()
+	peerID := stream.Conn().RemotePeer()
+	streamReader := bufio.NewReader(stream)
 
-		log.Printf("Stream established with peer %s\n", peerID)
+	log.Printf("Stream established with peer %s and stream id %s\n", peerID, stream.ID())
 
-		for {
-			isStreamClosed := network.Stream.Conn(stream).IsClosed()
-			if isStreamClosed {
-				log.Println("Stream seems to be closed ...", peerID)
-				break
-			}
+	for {
+		isStreamClosed := network.Stream.Conn(stream).IsClosed()
+		if isStreamClosed {
+			log.Println("Stream seems to be closed ...", peerID)
+			b.RemoveBuffer(peerID) // Clean up the buffer when stream is closed
+			break
+		}
 
-			// Set a read deadline to avoid blocking indefinitely
-			stream.SetReadDeadline(time.Now().Add(5 * time.Second))
+		// Set a read deadline to avoid blocking indefinitely
+		stream.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-			// Try to read bytes with a newline
-			bytesFromOtherside, err := streamReader.ReadBytes('\n')
+		// Read data without requiring newline
+		buffer := make([]byte, 1024)
+		n, err := streamReader.Read(buffer)
 
-			// Check for timeout
-			if err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					// This is a timeout, which is expected
-					log.Printf("No data received from %s in 5 seconds, continuing...\n", peerID)
-					continue
-				}
-
-				// For other errors, log them
-				log.Printf("Error reading from stream: %v\n", err)
-
-				// Try to read without waiting for newline
-				stream.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-				buffer := make([]byte, 1024)
-				n, readErr := streamReader.Read(buffer)
-				if readErr == nil && n > 0 {
-					// Forward the message to WebSocket
-					p2pToWS <- WSMessage{
-						Type:      "p2p",
-						Data:      string(buffer[:n]),
-						Timestamp: time.Now().UnixMilli(),
-					}
-				}
+		// Check for timeout
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				// This is a timeout, which is expected
+				log.Printf("No data received from %s in 5 seconds, continuing...\n", peerID)
 				continue
 			}
 
-			// If we got here, we successfully read data with a newline
-			log.Printf("Received from %s: %s\n", peerID, string(bytesFromOtherside))
+			// For other errors, log them
+			log.Printf("Error reading from stream: %v\n", err)
+			continue
+		}
 
+		if n > 0 {
 			// Forward the message to WebSocket
+			log.Printf("Received from %s: %s\n", peerID, string(buffer[:n]))
 			p2pToWS <- WSMessage{
 				Type:      "p2p",
-				Data:      string(bytesFromOtherside),
+				Data:      string(buffer[:n]),
 				Timestamp: time.Now().UnixMilli(),
 			}
 		}
-	})
+	}
+}
+
+// Handle P2P messages from WebSocket and forward to peers
+func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, wsToP2P chan WSMessage, p2pToWS chan WSMessage, isBuyer bool) {
+	if isBuyer {
+		// Set up stream handler for incoming P2P messages (Buyer case)
+		log.Println("Setting up stream handler for protocol", Protocol)
+		h.SetStreamHandler(Protocol, func(stream network.Stream) {
+			handleStream(stream, b, p2pToWS)
+		})
+	} else {
+		// Seller case - start a goroutine to handle incoming messages
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// Check for any active streams and handle them
+					for _, conn := range h.Network().Conns() {
+						streams := conn.GetStreams()
+						for _, stream := range streams {
+							if stream.Protocol() == Protocol {
+								handleStream(stream, b, p2pToWS)
+							}
+						}
+					}
+					//time.Sleep(time.Second) // Prevent tight loop
+				}
+			}
+		}()
+	}
 
 	// Handle outgoing messages to peers
 	go func() {
@@ -160,7 +177,7 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 					log.Printf("Sending message to peer %s\n", peerID)
 
 					// Send the message using the p2p stream
-					sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, peerID, b, msgBytes)
+					sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, peerID, b, msgBytes, h, Protocol)
 					if sendError != nil {
 						// Send the public connectivity error message for the other peer's sdk to handle
 						hedera_msg.PeerSendErrorMessage(
@@ -210,10 +227,10 @@ func main() {
 		"0.1",    // Specify your app's version
 		Protocol, // Specify a protocol ID
 		nil,      // leave nil if you don't need custom key configuration logic
-		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define buyer case logic here (if required)
-			handleP2PMessages(ctx, h, b, buyerWSToP2P, buyerP2PToWS)
+		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define buyer case logic here
+			handleP2PMessages(ctx, h, b, buyerWSToP2P, buyerP2PToWS, true)
 		},
-		func(msg hedera.TopicMessage) { // Define buyer topic callback logic here (if required)
+		func(msg hedera.TopicMessage) { // Define buyer topic callback logic here
 			// Handle buyer topic messages
 			buyerP2PToWS <- WSMessage{
 				Type:      "p2p",
@@ -221,8 +238,8 @@ func main() {
 				Timestamp: time.Now().UnixMilli(),
 			}
 		},
-		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define seller case logic here (if required)
-			handleP2PMessages(ctx, h, b, sellerWSToP2P, sellerP2PToWS)
+		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define seller case logic here
+			handleP2PMessages(ctx, h, b, sellerWSToP2P, sellerP2PToWS, false)
 		},
 		func(msg hedera.TopicMessage) {
 			// Handle seller topic messages

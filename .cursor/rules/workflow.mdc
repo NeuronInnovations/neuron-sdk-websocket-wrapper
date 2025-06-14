@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Buyer initiates, using a dlt the connection request is signalled to the Seller
+Seller does the dial, opens the stream. Buyer is not creating new streams but is using whatever the seller has created.
