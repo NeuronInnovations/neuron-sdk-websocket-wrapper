@@ -21,6 +21,9 @@ This project provides a wrapper for the Neuron SDK, enabling seamless integratio
 1. cd into `neuron-nodered-sdk-wrapper` and
 2. Delete the `.template` suffix from .buyer-env and .seller-env and fill up the fields. 
 3.  run ./integrationtests/start-seller.sh and start-buyer.sh
+4.  run `wscat -c ws://localhost:3001/seller/p2p` and `wscat -c ws://localhost:3002/buyer/p2p`
+5. send a message `{"type":"p2p","data":"Hello from other side","timestamp":1750079750546}` from either buyer or seller
+  
 
 
 
