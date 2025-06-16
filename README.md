@@ -1,5 +1,6 @@
 # Neuron Node-RED SDK Wrapper
 
+
 This project provides a wrapper for the Neuron SDK, enabling seamless integration with Node-RED through WebSocket connections. It implements the P2P communication protocol defined in the Neuron SDK, allowing for real-time data exchange between buyers and sellers.
 
 ## Features
@@ -9,6 +10,21 @@ This project provides a wrapper for the Neuron SDK, enabling seamless integratio
 - Support for both buyer and seller roles
 - Integration with Node-RED
 - Secure P2P communication
+
+## Developer preview quick run
+
+0. Create a project structure like this
+- myfolder
+    -  `neuron-go-hedera-sdk` folder  and checkout `destream` 
+    https://github.com/NeuronInnovations/neuron-go-hedera-sdk/tree/destream 
+    -  `neuron-nodered-sdk-wrapper` folder  and checkout  `main`  https://github.com/NeuronInnovations/neuron-nodered-sdk-wrapper
+1. cd into `neuron-nodered-sdk-wrapper` and
+2. Delete the `.template` suffix from .buyer-env and .seller-env and fill up the fields. 
+3.  run ./integrationtests/start-seller.sh and start-buyer.sh
+
+
+
+
 
 ## WebSocket Endpoints
 

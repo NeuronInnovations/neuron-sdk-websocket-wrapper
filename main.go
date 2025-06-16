@@ -131,15 +131,17 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 	}
 }
 
-// Handle P2P messages from WebSocket and forward to peers
+// Handle P2P messages from WebSocket and forward to peers. By default, the seller uses newStream and the buyer catches the event using setstreamhandler.
+// If we want the buyer to send a message to the seller then the buyer can either create newStream so that the seller's streamhandler fires or, ad it is done here,
+// we can "find" the stream and send the message to the seller.
 func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, wsToP2P chan WSMessage, p2pToWS chan WSMessage, isBuyer bool) {
-	if isBuyer {
+	if isBuyer { // listens for  newstream
 		// Set up stream handler for incoming P2P messages (Buyer case)
 		log.Println("Setting up stream handler for protocol", Protocol)
 		h.SetStreamHandler(Protocol, func(stream network.Stream) {
 			handleStream(stream, b, p2pToWS)
 		})
-	} else {
+	} else { // is seller finds existing stream and handles it
 		// Seller case - start a goroutine to handle incoming messages
 		go func() {
 			for {
