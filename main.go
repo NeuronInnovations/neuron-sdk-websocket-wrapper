@@ -17,6 +17,7 @@ import (
 	hedera_msg "github.com/NeuronInnovations/neuron-go-hedera-sdk/hedera"
 	"github.com/NeuronInnovations/neuron-go-hedera-sdk/keylib"
 	"github.com/NeuronInnovations/neuron-go-hedera-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/websocket"
 	"github.com/hashgraph/hedera-sdk-go/v2"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -116,6 +117,21 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 
 	log.Printf("Stream established with peer %s and stream id %s\n", peerID, stream.ID())
 
+	// Get the public key from the peer ID
+	pubKey, err := peerID.ExtractPublicKey()
+	if err != nil {
+		log.Printf("Error extracting public key from peer ID %s: %v", peerID, err)
+	}
+	var senderPublicKey string
+	if pubKey != nil {
+		pubKeyBytes, err := pubKey.Raw()
+		if err != nil {
+			log.Printf("Error getting raw public key bytes: %v", err)
+		} else {
+			senderPublicKey = common.Bytes2Hex(pubKeyBytes)
+		}
+	}
+
 	for {
 		isStreamClosed := network.Stream.Conn(stream).IsClosed()
 		if isStreamClosed {
@@ -151,6 +167,7 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 				Type:      "p2p",
 				Data:      string(buffer[:n]),
 				Timestamp: time.Now().UnixMilli(),
+				PublicKey: senderPublicKey, // Add the sender's public key to the message
 			}
 		}
 	}

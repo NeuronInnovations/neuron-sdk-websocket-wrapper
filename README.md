@@ -1,6 +1,5 @@
 # Neuron Node-RED SDK Wrapper
 
-
 This project provides a wrapper for the Neuron SDK, enabling seamless integration with Node-RED through WebSocket connections. It implements the P2P communication protocol defined in the Neuron SDK, allowing for real-time data exchange between buyers and sellers.
 
 ## Features
@@ -13,46 +12,90 @@ This project provides a wrapper for the Neuron SDK, enabling seamless integratio
 
 ## Developer preview quick run
 
-0. Create a project structure like this
-- myfolder
-    -  `neuron-go-hedera-sdk` folder  and checkout `destream` 
-    https://github.com/NeuronInnovations/neuron-go-hedera-sdk/tree/destream 
-    -  `neuron-nodered-sdk-wrapper` folder  and checkout  `main`  https://github.com/NeuronInnovations/neuron-nodered-sdk-wrapper
-1. cd into `neuron-nodered-sdk-wrapper` and
-2. Delete the `.template` suffix from .buyer-env and .seller-env and fill up the fields. 
-3.  run ./integrationtests/start-seller.sh and start-buyer.sh
-4.  run `wscat -c ws://localhost:3001/seller/p2p` and `wscat -c ws://localhost:3002/buyer/p2p`
-5. send a message `{"type":"p2p","data":"Hello from other side","timestamp":1750079750546}` from either buyer or seller
-  
+0. Create a project structure like this:
+```
+myfolder/
+├── neuron-go-hedera-sdk/    # Checkout destream branch
+└── neuron-nodered-sdk-wrapper/  # Checkout main branch
+```
 
+1. Clone the repositories:
+```bash
+# Clone the SDK
+git clone -b destream https://github.com/NeuronInnovations/neuron-go-hedera-sdk.git
+# Clone the wrapper
+git clone https://github.com/NeuronInnovations/neuron-nodered-sdk-wrapper.git
+```
 
+2. Configure the environment:
+   - Delete the `.template` suffix from `.buyer-env` and `.seller-env`
+   - Fill in the required fields in both files
 
+3. Start the services:
+```bash
+# Start the seller
+./integrationtests/start-seller.sh
+# Start the buyer
+./integrationtests/start-buyer.sh
+```
 
+4. Test the connection:
+```bash
+# Connect to seller WebSocket
+wscat -c ws://localhost:3001/seller/p2p
+# Connect to buyer WebSocket
+wscat -c ws://localhost:3002/buyer/p2p
+```
+
+5. Send a test message:
+```json
+{
+    "type": "p2p",
+    "data": "Hello from other side",
+    "timestamp": 1750079750546,
+    "publicKey": "target_peer_public_key"  // Required when sending messages
+}
+```
 
 ## WebSocket Endpoints
 
 The wrapper exposes the following WebSocket endpoints:
 
-### Buyer Endpoints
+### Buyer Endpoint
 - `ws://localhost:3002/buyer/p2p` - P2P communication endpoint
-- `ws://localhost:3002/buyer/stdout` - Standard output stream
-- `ws://localhost:3002/buyer/stderr` - Standard error stream
-- `ws://localhost:3002/buyer/stdin` - Standard input stream
 
-### Seller Endpoints
-- `ws://localhost:3001/buyer/p2p` - P2P communication endpoint
-- `ws://localhost:3001/buyer/stdout` - Standard output stream
-- `ws://localhost:3001/buyer/stderr` - Standard error stream
-- `ws://localhost:3001/buyer/stdin` - Standard input stream
+### Seller Endpoint
+- `ws://localhost:3001/seller/p2p` - P2P communication endpoint
 
 ## Message Format
 
-All WebSocket messages must follow this JSON format:
+### Sending Messages
 ```json
 {
     "type": "p2p",
     "data": "your message here",
-    "timestamp": 1234567890
+    "timestamp": 1234567890,
+    "publicKey": "target_peer_public_key"  // Required when sending messages
+}
+```
+
+### Receiving Messages
+```json
+{
+    "type": "p2p",
+    "data": "received message",
+    "timestamp": 1234567890,
+    "publicKey": "sender_peer_public_key"  // Included in received messages
+}
+```
+
+### Error Messages
+```json
+{
+    "type": "error",
+    "data": "error description",
+    "timestamp": 1234567890,
+    "error": "ERROR_CODE"
 }
 ```
 
@@ -73,7 +116,12 @@ wscat -c ws://localhost:3002/buyer/p2p
 wscat -c ws://localhost:3001/seller/p2p
 
 # Once connected, send a message:
-{"type":"p2p","data":"Hello from wscat!","timestamp":1234567890}
+{
+    "type": "p2p",
+    "data": "Hello from wscat!",
+    "timestamp": 1234567890,
+    "publicKey": "target_peer_public_key"
+}
 ```
 
 ### Using Node-RED
@@ -89,7 +137,8 @@ In Node-RED, you can use the WebSocket nodes to connect to these endpoints:
 {
     "type": "p2p",
     "data": "{{your message}}",
-    "timestamp": {{$timestamp}}
+    "timestamp": {{$timestamp}},
+    "publicKey": "{{target_peer_public_key}}"
 }
 ```
 
