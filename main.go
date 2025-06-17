@@ -12,11 +12,13 @@ import (
 	neuronsdk "github.com/NeuronInnovations/neuron-go-hedera-sdk" // Import neuronFactory from neuron-go-sdk
 	commonlib "github.com/NeuronInnovations/neuron-go-hedera-sdk/common-lib"
 	hedera_msg "github.com/NeuronInnovations/neuron-go-hedera-sdk/hedera"
+	"github.com/NeuronInnovations/neuron-go-hedera-sdk/keylib"
 	"github.com/NeuronInnovations/neuron-go-hedera-sdk/types"
 	"github.com/gorilla/websocket"
 	"github.com/hashgraph/hedera-sdk-go/v2"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
@@ -31,6 +33,7 @@ type WSMessage struct {
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"`
 	Timestamp int64       `json:"timestamp"`
+	PublicKey string      `json:"publicKey,omitempty"` // Optional field to specify target peer
 }
 
 // WebSocket upgrader
@@ -174,25 +177,56 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 				// Convert message to bytes
 				msgBytes := []byte(msg.Data.(string) + "\n")
 
-				// Send to all connected peers
-				for peerID, bufferInfo := range b.GetBufferMap() {
-					log.Printf("Sending message to peer %s\n", peerID)
-
-					// Send the message using the p2p stream
-					sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, peerID, b, msgBytes, h, Protocol)
-					if sendError != nil {
-						// Send the public connectivity error message for the other peer's sdk to handle
-						hedera_msg.PeerSendErrorMessage(
-							bufferInfo.RequestOrResponse.OtherStdInTopic,
-							types.WriteError,
-							"Failed to send message: "+sendError.Error()+string(msgBytes),
-							types.SendFreshHederaRequest,
-						)
-						log.Printf("Error sending to peer %s: %v\n", peerID, sendError)
-						continue
-					}
-					log.Printf("Successfully sent message to peer %s\n", peerID)
+				// Get the target public key from the message
+				targetPublicKey := msg.PublicKey
+				if targetPublicKey == "" {
+					log.Printf("No target public key specified in message, skipping...\n")
+					continue
 				}
+
+				// Find the peer with matching public key
+				targetPeerIDStr := keylib.ConvertHederaPublicKeyToPeerID(targetPublicKey)
+				log.Printf("Converted public key %s to peer ID string: %s\n", targetPublicKey, targetPeerIDStr)
+
+				if targetPeerIDStr == "" {
+					log.Printf("No peer found with public key %s\n", targetPublicKey)
+					continue
+				}
+				targetPeerID, err := peer.Decode(targetPeerIDStr)
+				if err != nil {
+					log.Printf("Error decoding peer ID: %v\n", err)
+					continue
+				}
+				log.Printf("Decoded peer ID: %s\n", targetPeerID.String())
+
+				// Debug: Print all available peer IDs in the buffer map
+				log.Printf("Available peer IDs in buffer map:")
+				for existingPeerID := range b.GetBufferMap() {
+					log.Printf("  - %s\n", existingPeerID.String())
+				}
+
+				// Get buffer info for the target peer
+				bufferInfo, exists := b.GetBuffer(targetPeerID)
+				if !exists {
+					log.Printf("No buffer found for peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
+					continue
+				}
+
+				// Send the message to the specific peer
+				log.Printf("Sending message to peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
+				sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
+				if sendError != nil {
+					// Send the public connectivity error message for the other peer's sdk to handle
+					hedera_msg.PeerSendErrorMessage(
+						bufferInfo.RequestOrResponse.OtherStdInTopic,
+						types.WriteError,
+						"Failed to send message: "+sendError.Error()+string(msgBytes),
+						types.SendFreshHederaRequest,
+					)
+					log.Printf("Error sending to peer %s (ID: %s): %v\n", targetPublicKey, targetPeerID.String(), sendError)
+					continue
+				}
+				log.Printf("Successfully sent message to peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
 			}
 		}
 	}()
