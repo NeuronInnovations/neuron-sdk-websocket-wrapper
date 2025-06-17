@@ -7,6 +7,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	neuronsdk "github.com/NeuronInnovations/neuron-go-hedera-sdk" // Import neuronFactory from neuron-go-sdk
@@ -28,12 +31,31 @@ var (
 	WSPort   = pflag.Int("ws-port", 8080, "WebSocket server port")
 )
 
+func init() {
+	// Set up custom logger with file and line information
+	log.SetFlags(0) // Remove default flags
+	log.SetOutput(&locationWriter{os.Stdout})
+}
+
+// locationWriter is a custom writer that adds file and line information to log messages
+type locationWriter struct {
+	*os.File
+}
+
+func (w *locationWriter) Write(p []byte) (n int, err error) {
+	_, file, line, _ := runtime.Caller(3) // Skip the log package's internal calls
+	file = filepath.Base(file)            // Get just the filename without the path
+	prefix := fmt.Sprintf("[%s:%d] ", file, line)
+	return w.File.Write(append([]byte(prefix), p...))
+}
+
 // WebSocket message structure
 type WSMessage struct {
 	Type      string      `json:"type"`
 	Data      interface{} `json:"data"`
 	Timestamp int64       `json:"timestamp"`
 	PublicKey string      `json:"publicKey,omitempty"` // Optional field to specify target peer
+	Error     string      `json:"error,omitempty"`     // Add error field for responses
 }
 
 // WebSocket upgrader
@@ -97,7 +119,7 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 	for {
 		isStreamClosed := network.Stream.Conn(stream).IsClosed()
 		if isStreamClosed {
-			log.Println("Stream seems to be closed ...", peerID)
+			log.Printf("Stream seems to be closed ...", peerID)
 			b.RemoveBuffer(peerID) // Clean up the buffer when stream is closed
 			break
 		}
@@ -140,7 +162,7 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, wsToP2P chan WSMessage, p2pToWS chan WSMessage, isBuyer bool) {
 	if isBuyer { // listens for  newstream
 		// Set up stream handler for incoming P2P messages (Buyer case)
-		log.Println("Setting up stream handler for protocol", Protocol)
+		log.Printf("Setting up stream handler for protocol %s", Protocol)
 		h.SetStreamHandler(Protocol, func(stream network.Stream) {
 			handleStream(stream, b, p2pToWS)
 		})
@@ -161,7 +183,6 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 							}
 						}
 					}
-					//time.Sleep(time.Second) // Prevent tight loop
 				}
 			}
 		}()
@@ -180,40 +201,67 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 				// Get the target public key from the message
 				targetPublicKey := msg.PublicKey
 				if targetPublicKey == "" {
-					log.Printf("No target public key specified in message, skipping...\n")
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      "No target public key specified in message",
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "MISSING_PUBLIC_KEY",
+					}
+					p2pToWS <- errorMsg
 					continue
 				}
+
+				// Log the received public key for debugging
+				log.Printf("Received public key: %s (length: %d)", targetPublicKey, len(targetPublicKey))
 
 				// Find the peer with matching public key
-				targetPeerIDStr := keylib.ConvertHederaPublicKeyToPeerID(targetPublicKey)
-				log.Printf("Converted public key %s to peer ID string: %s\n", targetPublicKey, targetPeerIDStr)
-
-				if targetPeerIDStr == "" {
-					log.Printf("No peer found with public key %s\n", targetPublicKey)
+				targetPeerIDStr, err := keylib.ConvertHederaPublicKeyToPeerID(targetPublicKey)
+				if err != nil {
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("Error converting public key: %v", err),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "INVALID_PUBLIC_KEY",
+					}
+					p2pToWS <- errorMsg
 					continue
 				}
+				log.Printf("Converted public key %s to peer ID string: %s", targetPublicKey, targetPeerIDStr)
+
 				targetPeerID, err := peer.Decode(targetPeerIDStr)
 				if err != nil {
-					log.Printf("Error decoding peer ID: %v\n", err)
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("Error decoding peer ID: %v", err),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "PEER_ID_DECODE_ERROR",
+					}
+					p2pToWS <- errorMsg
 					continue
 				}
-				log.Printf("Decoded peer ID: %s\n", targetPeerID.String())
+				log.Printf("Decoded peer ID: %s", targetPeerID.String())
 
 				// Debug: Print all available peer IDs in the buffer map
 				log.Printf("Available peer IDs in buffer map:")
 				for existingPeerID := range b.GetBufferMap() {
-					log.Printf("  - %s\n", existingPeerID.String())
+					log.Printf("  - %s", existingPeerID.String())
 				}
 
 				// Get buffer info for the target peer
 				bufferInfo, exists := b.GetBuffer(targetPeerID)
 				if !exists {
-					log.Printf("No buffer found for peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("No buffer found for peer %s", targetPublicKey),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "PEER_NOT_FOUND",
+					}
+					p2pToWS <- errorMsg
 					continue
 				}
 
 				// Send the message to the specific peer
-				log.Printf("Sending message to peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
+				log.Printf("Sending message to peer %s", targetPublicKey)
 				sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
 				if sendError != nil {
 					// Send the public connectivity error message for the other peer's sdk to handle
@@ -223,10 +271,23 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 						"Failed to send message: "+sendError.Error()+string(msgBytes),
 						types.SendFreshHederaRequest,
 					)
-					log.Printf("Error sending to peer %s (ID: %s): %v\n", targetPublicKey, targetPeerID.String(), sendError)
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("Error sending to peer %s: %v", targetPublicKey, sendError),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "SEND_ERROR",
+					}
+					p2pToWS <- errorMsg
 					continue
 				}
-				log.Printf("Successfully sent message to peer %s (ID: %s)\n", targetPublicKey, targetPeerID.String())
+
+				// Send success response
+				successMsg := WSMessage{
+					Type:      "success",
+					Data:      fmt.Sprintf("Successfully sent message to peer %s", targetPublicKey),
+					Timestamp: time.Now().UnixMilli(),
+				}
+				p2pToWS <- successMsg
 			}
 		}
 	}()
