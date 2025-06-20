@@ -395,18 +395,12 @@ func handleInternalCommands(ctx context.Context, h host.Host, b *commonlib.NodeB
 				}
 				responses <- successMsg
 			} else if msg.Type == "showCurrentPeers" {
-				// Get current peer status (works for both buyers and sellers)
-				currentSellers := neuronsdk.ShowCurrentPeerStatus(b)
-
-				// Convert to a more user-friendly format
-				sellerList := make([]string, 0, len(currentSellers))
-				for seller := range currentSellers {
-					sellerList = append(sellerList, seller.PublicKey)
-				}
+				// Get detailed current peer status (works for both buyers and sellers)
+				detailedPeerStatus := neuronsdk.ShowDetailedPeerStatus(b, h)
 
 				responseMsg := WSMessage{
 					Type:      "currentPeers",
-					Data:      sellerList,
+					Data:      detailedPeerStatus,
 					Timestamp: time.Now().UnixMilli(),
 				}
 				responses <- responseMsg

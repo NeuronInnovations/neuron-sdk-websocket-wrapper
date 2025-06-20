@@ -88,8 +88,34 @@ These commands are processed locally by the node and do not get forwarded to oth
 #### Show Current Peers (Buyers and Sellers)
 - **Type**: `showCurrentPeers`
 - **Data**: Empty string or any value (ignored)
-- **Response**: List of currently connected peers with their public keys
+- **Response**: Detailed list of currently connected peers with status information
 - **Available for**: Both buyers and sellers
+- **Response Format**:
+```json
+[
+  {
+    "publicKey": "02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153",
+    "peerID": "QmPeerID...",
+    "libP2PState": "Connected",
+    "rendezvousState": "SendOK",
+    "isOtherSideValidAccount": true,
+    "noOfConnectionAttempts": 0,
+    "lastConnectionAttempt": "2024-01-01T12:00:00Z",
+    "nextScheduledConnectionAttempt": "2024-01-01T12:00:00Z",
+    "lastGoodsReceivedTime": "2024-01-01T12:00:00Z",
+    "lastOtherSideMultiAddress": "/ip4/192.168.1.1/tcp/8080",
+    "connectionStatus": "Connected"
+  }
+]
+```
+
+**Connection Status Values:**
+- `"Connected"`: Peer is actively connected and communicating
+- `"Connecting"`: Currently attempting to establish connection
+- `"Reconnecting"`: Attempting to reconnect after a disconnection
+- `"Disconnected"`: Peer is not currently connected
+- `"Error"`: Connection failed due to an error
+- `"Unknown"`: Status cannot be determined
 
 #### Replace Sellers (Buyers Only)
 - **Type**: `replaceSellers`
