@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -57,6 +58,11 @@ type WSMessage struct {
 	Timestamp int64       `json:"timestamp"`
 	PublicKey string      `json:"publicKey,omitempty"` // Optional field to specify target peer
 	Error     string      `json:"error,omitempty"`     // Add error field for responses
+}
+
+// ReplaceSellersRequest represents a request to replace sellers
+type ReplaceSellersRequest struct {
+	SellerPublicKeys []string `json:"sellerPublicKeys"`
 }
 
 // WebSocket upgrader
@@ -310,6 +316,164 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 	}()
 }
 
+// Add internal command handler for buyer (separate from P2P)
+func handleBuyerInternalCommands(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, commands chan WSMessage, responses chan WSMessage) {
+	handleInternalCommands(ctx, h, b, commands, responses, true)
+}
+
+// Add internal command handler for seller (separate from P2P)
+func handleSellerInternalCommands(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, commands chan WSMessage, responses chan WSMessage) {
+	handleInternalCommands(ctx, h, b, commands, responses, false)
+}
+
+// Generic internal command handler that works for both buyers and sellers
+func handleInternalCommands(ctx context.Context, h host.Host, b *commonlib.NodeBuffers, commands chan WSMessage, responses chan WSMessage, isBuyer bool) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-commands:
+			if msg.Type == "replaceSellers" {
+				if !isBuyer {
+					// Sellers cannot replace sellers - this is a buyer-only operation
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      "replaceSellers is a buyer-only operation. Sellers cannot manage seller lists.",
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "BUYER_ONLY_OPERATION",
+					}
+					responses <- errorMsg
+					continue
+				}
+
+				request := ReplaceSellersRequest{}
+				err := json.Unmarshal([]byte(msg.Data.(string)), &request)
+				if err != nil {
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("Error parsing replaceSellers request: %v", err),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "PARSE_ERROR",
+					}
+					responses <- errorMsg
+					continue
+				}
+
+				log.Printf("Received replaceSellers request with %d seller public keys", len(request.SellerPublicKeys))
+
+				// Get the host's reachable addresses
+				myReachableAddresses := h.Addrs()
+				if len(myReachableAddresses) == 0 {
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      "No reachable addresses available",
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "NO_ADDRESSES",
+					}
+					responses <- errorMsg
+					continue
+				}
+
+				// Call the SDK's ReplaceSellersAuto function
+				err = neuronsdk.ReplaceSellersAuto(request.SellerPublicKeys, h, b, myReachableAddresses, Protocol)
+				if err != nil {
+					errorMsg := WSMessage{
+						Type:      "error",
+						Data:      fmt.Sprintf("Error replacing sellers: %v", err),
+						Timestamp: time.Now().UnixMilli(),
+						Error:     "REPLACE_ERROR",
+					}
+					responses <- errorMsg
+					continue
+				}
+
+				// Send success response
+				successMsg := WSMessage{
+					Type:      "success",
+					Data:      fmt.Sprintf("Successfully replaced sellers with %d new sellers", len(request.SellerPublicKeys)),
+					Timestamp: time.Now().UnixMilli(),
+				}
+				responses <- successMsg
+			} else if msg.Type == "showCurrentPeers" {
+				// Get current peer status (works for both buyers and sellers)
+				currentSellers := neuronsdk.ShowCurrentPeerStatus(b)
+
+				// Convert to a more user-friendly format
+				sellerList := make([]string, 0, len(currentSellers))
+				for seller := range currentSellers {
+					sellerList = append(sellerList, seller.PublicKey)
+				}
+
+				responseMsg := WSMessage{
+					Type:      "currentPeers",
+					Data:      sellerList,
+					Timestamp: time.Now().UnixMilli(),
+				}
+				responses <- responseMsg
+			} else {
+				// Unknown command
+				errorMsg := WSMessage{
+					Type:      "error",
+					Data:      fmt.Sprintf("Unknown command type: %s", msg.Type),
+					Timestamp: time.Now().UnixMilli(),
+					Error:     "UNKNOWN_COMMAND",
+				}
+				responses <- errorMsg
+			}
+		}
+	}
+}
+
+// handleInternalCommandsWebSocket handles WebSocket connections for internal commands
+func handleInternalCommandsWebSocket(w http.ResponseWriter, r *http.Request, commands chan WSMessage, responses chan WSMessage) {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Allow all origins for development
+		},
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Error upgrading connection: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	done := make(chan struct{})
+
+	// Handle incoming messages from client
+	go func() {
+		defer close(done)
+		for {
+			var msg WSMessage
+			err := conn.ReadJSON(&msg)
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Printf("WebSocket error: %v", err)
+				}
+				return
+			}
+
+			// Forward message to internal command handler
+			commands <- msg
+		}
+	}()
+
+	// Send responses to client
+	for {
+		select {
+		case <-done:
+			return
+		case msg := <-responses:
+			err := conn.WriteJSON(msg)
+			if err != nil {
+				log.Printf("Error writing message: %v", err)
+				return
+			}
+		}
+	}
+}
+
 func main() {
 	// Parse command line flags
 	pflag.Parse()
@@ -320,12 +484,30 @@ func main() {
 	sellerWSToP2P := make(chan WSMessage)
 	sellerP2PToWS := make(chan WSMessage)
 
+	// Create separate channels for internal commands (buyer only)
+	buyerInternalCommands := make(chan WSMessage)
+	buyerInternalResponses := make(chan WSMessage)
+
+	// Create separate channels for internal commands (seller only)
+	sellerInternalCommands := make(chan WSMessage)
+	sellerInternalResponses := make(chan WSMessage)
+
 	// Set up HTTP routes for P2P
 	http.HandleFunc("/buyer/p2p", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r, buyerWSToP2P, buyerP2PToWS)
 	})
 	http.HandleFunc("/seller/p2p", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r, sellerWSToP2P, sellerP2PToWS)
+	})
+
+	// Set up HTTP route for buyer internal commands
+	http.HandleFunc("/buyer/commands", func(w http.ResponseWriter, r *http.Request) {
+		handleInternalCommandsWebSocket(w, r, buyerInternalCommands, buyerInternalResponses)
+	})
+
+	// Set up HTTP route for seller internal commands
+	http.HandleFunc("/seller/commands", func(w http.ResponseWriter, r *http.Request) {
+		handleInternalCommandsWebSocket(w, r, sellerInternalCommands, sellerInternalResponses)
 	})
 
 	// Start HTTP server
@@ -343,6 +525,9 @@ func main() {
 		nil,      // leave nil if you don't need custom key configuration logic
 		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define buyer case logic here
 			handleP2PMessages(ctx, h, b, buyerWSToP2P, buyerP2PToWS, true)
+
+			// Add internal command handler for buyer (separate from P2P)
+			go handleBuyerInternalCommands(ctx, h, b, buyerInternalCommands, buyerInternalResponses)
 		},
 		func(msg hedera.TopicMessage) { // Define buyer topic callback logic here
 			// Handle buyer topic messages
@@ -354,6 +539,9 @@ func main() {
 		},
 		func(ctx context.Context, h host.Host, b *commonlib.NodeBuffers) { // Define seller case logic here
 			handleP2PMessages(ctx, h, b, sellerWSToP2P, sellerP2PToWS, false)
+
+			// Add internal command handler for seller (separate from P2P)
+			go handleSellerInternalCommands(ctx, h, b, sellerInternalCommands, sellerInternalResponses)
 		},
 		func(msg hedera.TopicMessage) {
 			// Handle seller topic messages

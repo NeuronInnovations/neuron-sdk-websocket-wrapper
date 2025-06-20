@@ -1,14 +1,13 @@
 # Neuron Node-RED SDK Wrapper
 
-This project provides a wrapper for the Neuron SDK, enabling seamless integration with Node-RED through WebSocket connections. It implements the P2P communication protocol defined in the Neuron SDK, allowing for real-time data exchange between buyers and sellers.
+A WebSocket wrapper for the Neuron SDK that enables easy integration with Node-RED and other WebSocket clients.
 
 ## Features
 
-- WebSocket endpoints for P2P communication
-- Real-time message streaming
-- Support for both buyer and seller roles
-- Integration with Node-RED
-- Secure P2P communication
+- WebSocket endpoints for buyer and seller nodes
+- Real-time P2P message forwarding
+- Internal command system for seller management
+- Current peer status monitoring
 
 ## Developer preview quick run
 
@@ -59,13 +58,52 @@ wscat -c ws://localhost:3002/buyer/p2p
 
 ## WebSocket Endpoints
 
-The wrapper exposes the following WebSocket endpoints:
+### Buyer Endpoints
+- **P2P Communication**: `ws://localhost:8080/buyer/p2p`
+  - Purpose: Connect to buyer node for P2P communication with other peers
+  - Messages: Forwarded to/from other peers in the network
+  
+- **Internal Commands**: `ws://localhost:8080/buyer/commands`
+  - Purpose: Send internal commands to the buyer node itself
+  - Messages: Processed locally, not forwarded to other peers
 
-### Buyer Endpoint
-- `ws://localhost:3002/buyer/p2p` - P2P communication endpoint
+### Seller Endpoints
+- **P2P Communication**: `ws://localhost:8080/seller/p2p`
+  - Purpose: Connect to seller node for P2P communication
+  
+- **Internal Commands**: `ws://localhost:8080/seller/commands`
+  - Purpose: Send internal commands to the seller node itself
+  - Messages: Processed locally, not forwarded to other peers
 
-### Seller Endpoint
-- `ws://localhost:3001/seller/p2p` - P2P communication endpoint
+## Message Types
+
+### P2P Messages (buyer/p2p, seller/p2p)
+- **Type**: `p2p`
+- **Data**: Message content to send to a specific peer
+- **PublicKey**: Target peer's public key (required)
+
+### Internal Commands (buyer/commands and seller/commands)
+These commands are processed locally by the node and do not get forwarded to other peers.
+
+#### Show Current Peers (Buyers and Sellers)
+- **Type**: `showCurrentPeers`
+- **Data**: Empty string or any value (ignored)
+- **Response**: List of currently connected peers with their public keys
+- **Available for**: Both buyers and sellers
+
+#### Replace Sellers (Buyers Only)
+- **Type**: `replaceSellers`
+- **Data**: JSON string containing seller public keys
+- **Available for**: Buyers only (sellers will receive an error)
+- **Format**:
+```json
+{
+  "sellerPublicKeys": [
+    "02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153",
+    "02759b048e7ccf6ba68f9658105a4a139b5f9f5dfd451857c600cc28f33a1a99ae"
+  ]
+}
+```
 
 ## Message Format
 
@@ -130,8 +168,8 @@ In Node-RED, you can use the WebSocket nodes to connect to these endpoints:
 
 1. Add a WebSocket out node
 2. Configure it to connect to:
-   - Buyer: `ws://localhost:3002/buyer/p2p`
-   - Seller: `ws://localhost:3001/seller/p2p`
+   - Buyer: `ws://localhost:8080/buyer/p2p`
+   - Seller: `ws://localhost:8080/seller/p2p`
 3. Set the message format to:
 ```json
 {
@@ -226,3 +264,151 @@ Then, start the buyer service:
 ```
 
 The buyer will establish a connection with the seller and start the service.
+
+## Usage Examples
+
+### Using wscat (Command Line)
+
+First, install wscat if you don't have it:
+```bash
+npm install -g wscat
+```
+
+#### Show Current Peers (Buyers and Sellers)
+```bash
+# For buyers
+echo '{"type":"showCurrentPeers","data":"","timestamp":1703123456789}' | wscat -c ws://localhost:8080/buyer/commands
+
+# For sellers
+echo '{"type":"showCurrentPeers","data":"","timestamp":1703123456789}' | wscat -c ws://localhost:8080/seller/commands
+```
+
+#### Replace Sellers (Buyers Only)
+```bash
+echo '{"type":"replaceSellers","data":"{\"sellerPublicKeys\":[\"02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153\",\"02759b048e7ccf6ba68f9658105a4a139b5f9f5dfd451857c600cc28f33a1a99ae\"]}","timestamp":1703123456789}' | wscat -c ws://localhost:8080/buyer/commands
+```
+
+#### Interactive Mode
+You can also connect interactively and send multiple commands:
+```bash
+# Connect to buyer commands endpoint
+wscat -c ws://localhost:8080/buyer/commands
+
+# Then paste these messages one by one:
+{"type":"showCurrentPeers","data":"","timestamp":1703123456789}
+{"type":"replaceSellers","data":"{\"sellerPublicKeys\":[\"02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153\"]}","timestamp":1703123456789}
+
+# Or connect to seller commands endpoint
+wscat -c ws://localhost:8080/seller/commands
+
+# Then paste this message:
+{"type":"showCurrentPeers","data":"","timestamp":1703123456789}
+```
+
+## Response Format
+
+All responses follow this format:
+```json
+{
+    "type": "response_type",
+    "data": "response_data",
+    "timestamp": 1234567890123,
+    "error": "error_message_if_any"
+}
+```
+
+## Error Handling
+
+The system returns structured error responses with:
+- **PARSE_ERROR**: Invalid JSON format in request
+- **NO_ADDRESSES**: Node has no reachable addresses
+- **REPLACE_ERROR**: Error during seller replacement process
+- **BUYER_ONLY_OPERATION**: Command is only available for buyers (e.g., replaceSellers from seller)
+- **UNKNOWN_COMMAND**: Command type not recognized
+
+## Testing
+
+Run the test script to verify functionality:
+```bash
+node test_seller_replacement.js
+```
+
+## Architecture Notes
+
+- **P2P Messages**: Use `/buyer/p2p` or `/seller/p2p` for peer-to-peer communication
+- **Internal Commands**: Use `/buyer/commands` for node introspection and management
+- **Separation**: Internal commands never get forwarded to other peers, ensuring clean separation of concerns
+
+### JavaScript/Node.js
+```javascript
+const WebSocket = require('ws');
+
+// Connect to buyer internal commands endpoint
+const buyerWs = new WebSocket('ws://localhost:8080/buyer/commands');
+
+// Show current peers (buyer)
+buyerWs.send(JSON.stringify({
+    type: 'showCurrentPeers',
+    data: '',
+    timestamp: Date.now()
+}));
+
+// Replace sellers (buyer only)
+buyerWs.send(JSON.stringify({
+    type: 'replaceSellers',
+    data: JSON.stringify({
+        sellerPublicKeys: ['02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153']
+    }),
+    timestamp: Date.now()
+}));
+
+// Connect to seller internal commands endpoint
+const sellerWs = new WebSocket('ws://localhost:8080/seller/commands');
+
+// Show current peers (seller)
+sellerWs.send(JSON.stringify({
+    type: 'showCurrentPeers',
+    data: '',
+    timestamp: Date.now()
+}));
+
+// Note: replaceSellers will return an error for sellers
+```
+
+### Python
+```python
+import websocket
+import json
+import time
+
+# Connect to buyer internal commands endpoint
+buyer_ws = websocket.create_connection("ws://localhost:8080/buyer/commands")
+
+# Show current peers (buyer)
+buyer_ws.send(json.dumps({
+    "type": "showCurrentPeers",
+    "data": "",
+    "timestamp": int(time.time() * 1000)
+}))
+
+# Replace sellers (buyer only)
+buyer_ws.send(json.dumps({
+    "type": "replaceSellers",
+    "data": json.dumps({
+        "sellerPublicKeys": ["02c7370bf416ee6e9f9a430a12869c456d93db6b7392a9f90d0db8981190f47153"]
+    }),
+    "timestamp": int(time.time() * 1000)
+}))
+
+# Connect to seller internal commands endpoint
+seller_ws = websocket.create_connection("ws://localhost:8080/seller/commands")
+
+# Show current peers (seller)
+seller_ws.send(json.dumps({
+    "type": "showCurrentPeers",
+    "data": "",
+    "timestamp": int(time.time() * 1000)
+}))
+
+# Note: replaceSellers will return an error for sellers
+```
