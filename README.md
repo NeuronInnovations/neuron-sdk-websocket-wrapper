@@ -291,6 +291,31 @@ Then, start the buyer service:
 
 The buyer will establish a connection with the seller and start the service.
 
+### Smart Contract Address Configuration
+
+The smart contract address can be configured in multiple ways:
+
+**Using environment variable (recommended for most cases):**
+```bash
+# Set in .env file
+smart_contract_address=0x1234567890123456789012345678901234567890
+
+# Run normally
+./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env
+```
+
+**Using command-line flag (overrides environment variable):**
+```bash
+./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x1234567890123456789012345678901234567890
+```
+
+**Flag takes precedence over environment variable:**
+```bash
+# Even if .env has smart_contract_address=0x1111...
+./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x2222222222222222222222222222222222222222
+# Uses 0x2222... (flag value)
+```
+
 ## Usage Examples
 
 ### Using wscat (Command Line)
