@@ -301,6 +301,9 @@ npm install -g wscat
 ```
 
 #### Show Current Peers (Buyers and Sellers)
+
+Note: this endpoint is not the `/p2p` endpoint. It's a `/comands` endpoints
+
 ```bash
 # For buyers
 echo '{"type":"showCurrentPeers","data":"","timestamp":1703123456789}' | wscat -c ws://localhost:8080/buyer/commands

@@ -4,3 +4,4 @@ __debug*
 *.env
 .buyer-env
 .seller-env
+.cursor**
