@@ -5,4 +5,4 @@ kill $(lsof -t -i:3001) 2>/dev/null
 kill $(lsof -t -i:1354) 2>/dev/null
 
 echo "Starting seller..."
-go run . --port=1654 --mode=peer --buyer-or-seller=seller --envFile=.seller-env --ws-port=3001 
+go run . --port=1354 --mode=peer --buyer-or-seller=seller --envFile=.seller-env --use-local-address --ws-port=3001 
