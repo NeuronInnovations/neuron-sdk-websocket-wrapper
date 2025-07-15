@@ -1,4 +1,4 @@
- # Cursor Rules for Neuron Node-RED SDK Wrapper
+ # Cursor Rules for Neuron SDK WebSocket Wrapper
 
 ## Main Dependency
 The primary dependency of this project is the Neuron Go Hedera SDK:

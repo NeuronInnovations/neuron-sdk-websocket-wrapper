@@ -1,4 +1,4 @@
-module nrn-nodered-sdk-wrapper
+module nrn-sdk-websocket-wrapper
 
 go 1.23
 

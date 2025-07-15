@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Node-RED seller",
+            "name": "WebSocket seller",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -17,7 +17,7 @@
             "showLog": false
         },
         {
-            "name": "Node-RED buyer",
+            "name": "WebSocket buyer",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -28,7 +28,7 @@
             "showLog": false
         },
         {
-            "name": "Local Node-RED seller",
+            "name": "Local WebSocket seller",
             "type": "go",
             "request": "launch",
             "mode": "debug",
@@ -39,7 +39,7 @@
             "showLog": false
         },
         {
-            "name": "Local Node-RED buyer",
+            "name": "Local WebSocket buyer",
             "type": "go",
             "request": "launch",
             "mode": "debug",

@@ -1,6 +1,6 @@
-# Neuron Node-RED SDK Wrapper
+# Neuron SDK WebSocket Wrapper
 
-A WebSocket wrapper for the Neuron SDK that enables easy integration with Node-RED and other WebSocket clients.
+A WebSocket wrapper for the Neuron SDK that enables easy integration with WebSocket clients and applications.
 
 ## Features
 
@@ -15,7 +15,7 @@ A WebSocket wrapper for the Neuron SDK that enables easy integration with Node-R
 ```
 myfolder/
 ├── neuron-go-hedera-sdk/    # Checkout destream branch
-└── neuron-nodered-sdk-wrapper/  # Checkout main branch
+└── neuron-sdk-websocket-wrapper/  # Checkout main branch
 ```
 
 1. Clone the repositories:
@@ -23,7 +23,7 @@ myfolder/
 # Clone the SDK
 git clone -b destream https://github.com/NeuronInnovations/neuron-go-hedera-sdk.git
 # Clone the wrapper
-git clone https://github.com/NeuronInnovations/neuron-nodered-sdk-wrapper.git
+git clone https://github.com/NeuronInnovations/neuron-sdk-websocket-wrapper.git
 ```
 
 2. Configure the environment:
@@ -188,15 +188,14 @@ wscat -c ws://localhost:3001/seller/p2p
 }
 ```
 
-### Using Node-RED
+### Using WebSocket Clients
 
-In Node-RED, you can use the WebSocket nodes to connect to these endpoints:
+You can use any WebSocket client to connect to these endpoints:
 
-1. Add a WebSocket out node
-2. Configure it to connect to:
+1. Configure your WebSocket client to connect to:
    - Buyer: `ws://localhost:8080/buyer/p2p`
    - Seller: `ws://localhost:8080/seller/p2p`
-3. Set the message format to:
+2. Set the message format to:
 ```json
 {
     "type": "p2p",
@@ -220,7 +219,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Prerequisites
 
 - Go 1.16 or later
-- Node-RED installed and running
+- WebSocket client or application
 - A valid Hedera testnet account
 - Access to the Neuron Network (registration, DID)
 
@@ -228,8 +227,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/NeuronInnovations/neuron-nodered-sdk-wrapper.git
-cd neuron-nodered-sdk-wrapper
+git clone https://github.com/NeuronInnovations/neuron-sdk-websocket-wrapper.git
+cd neuron-sdk-websocket-wrapper
 ```
 
 2. Install dependencies:
@@ -239,7 +238,7 @@ go mod tidy
 
 3. Build the project:
 ```bash
-go build -o nodered-wrapper
+go build -o neuron-websocket-wrapper
 ```
 
 ## Configuration
@@ -276,7 +275,7 @@ list_of_sellers=<seller-public-key>
 First, start the seller service:
 
 ```bash
-./nodered-wrapper --mode=peer --buyer-or-seller=seller --envFile=.seller-env --port=20088
+./neuron-websocket-wrapper --mode=peer --buyer-or-seller=seller --envFile=.seller-env --port=20088
 ```
 
 The seller will start listening for incoming connections and requests.
@@ -286,7 +285,7 @@ The seller will start listening for incoming connections and requests.
 Then, start the buyer service:
 
 ```bash
-./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --port=30088 --list-of-sellers-source=env
+./neuron-websocket-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --port=30088 --list-of-sellers-source=env
 ```
 
 The buyer will establish a connection with the seller and start the service.
@@ -301,18 +300,18 @@ The smart contract address can be configured in multiple ways:
 smart_contract_address=0x1234567890123456789012345678901234567890
 
 # Run normally
-./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env
+./neuron-websocket-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env
 ```
 
 **Using command-line flag (overrides environment variable):**
 ```bash
-./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x1234567890123456789012345678901234567890
+./neuron-websocket-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x1234567890123456789012345678901234567890
 ```
 
 **Flag takes precedence over environment variable:**
 ```bash
 # Even if .env has smart_contract_address=0x1111...
-./nodered-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x2222222222222222222222222222222222222222
+./neuron-websocket-wrapper --mode=peer --buyer-or-seller=buyer --envFile=.buyer-env --smart-contract-address=0x2222222222222222222222222222222222222222
 # Uses 0x2222... (flag value)
 ```
 
