@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.2
 
 require (
-	github.com/NeuronInnovations/neuron-go-hedera-sdk v0.0.20
+	github.com/NeuronInnovations/neuron-go-hedera-sdk v0.0.21
 	github.com/hashgraph/hedera-sdk-go/v2 v2.46.0
 	github.com/libp2p/go-libp2p v0.38.2
 
