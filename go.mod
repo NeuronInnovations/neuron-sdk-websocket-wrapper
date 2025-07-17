@@ -157,4 +157,4 @@ require (
 )
 
 // uncomment this to work with a local copy of the SDK
-replace github.com/NeuronInnovations/neuron-go-hedera-sdk => ../neuron-go-hedera-sdk
+// replace github.com/NeuronInnovations/neuron-go-hedera-sdk => ../neuron-go-hedera-sdk
