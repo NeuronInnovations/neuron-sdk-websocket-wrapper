@@ -141,8 +141,8 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 	for {
 		isStreamClosed := network.Stream.Conn(stream).IsClosed()
 		if isStreamClosed {
-			log.Printf("Stream seems to be closed ...", peerID)
-			b.RemoveBuffer(peerID) // Clean up the buffer when stream is closed
+			log.Printf("Stream seems to be closed for peer %s", peerID)
+			b.MarkStreamFailed(peerID, "STREAM_CLOSED", "Stream connection was closed by remote peer")
 			break
 		}
 
