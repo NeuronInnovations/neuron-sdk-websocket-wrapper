@@ -285,7 +285,7 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 
 				// Send the message to the specific peer
 				log.Printf("Sending message to peer %s", targetPublicKey)
-				sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
+				sendError := commonlib.WriteAndFlushBuffer(bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
 				if sendError != nil {
 					// Send the public connectivity error message for the other peer's sdk to handle
 					hedera_msg.PeerSendErrorMessage(
