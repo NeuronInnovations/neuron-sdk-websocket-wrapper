@@ -5,3 +5,6 @@ __debug*
 .buyer-env
 .seller-env
 .cursor**
+dist/
+.gocache/
+.gomodcache/
