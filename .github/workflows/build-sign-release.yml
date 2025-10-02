@@ -18,7 +18,7 @@ on:
 
 jobs:
   build-sign-release:
-    runs-on: macos-13
+    runs-on: macos-latest
     env:
       GOPRIVATE: github.com/NeuronInnovations/*
       GH_TOKEN: ${{ secrets.GH_PAT }}
