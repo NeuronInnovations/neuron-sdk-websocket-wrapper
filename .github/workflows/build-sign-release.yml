@@ -210,12 +210,12 @@ jobs:
           RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
 
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            cat >"$RELEASE_NOTES_FILE" <<EOF
-## Neuron SDK Wrapper ${RELEASE_TAG}
+            {
+              printf '## Neuron SDK Wrapper %s\n\n' "$RELEASE_TAG"
+              printf -- '- Universal macOS binaries signed and notarized (Intel & Apple Silicon)\n'
+              printf -- '- Includes notarization summary JSON and SHA-256 checksums\n'
+            } >"$RELEASE_NOTES_FILE"
 
-- Universal macOS binaries signed and notarized (Intel & Apple Silicon)
-- Includes notarization summary JSON and SHA-256 checksums
-EOF
             gh release create "$RELEASE_TAG" \
               --title "$RELEASE_TITLE" \
               --notes-file "$RELEASE_NOTES_FILE"
