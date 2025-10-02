@@ -29,6 +29,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect signing prerequisites
+        id: signing-materials
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+        run: |
+          if [ -n "$ASC_API_KEY" ]; then
+            echo "has_notary_api_key=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$MAC_CERT_P12" ]; then
+            echo "has_mac_cert=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set release tag
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
@@ -38,7 +51,7 @@ jobs:
           fi
 
       - name: Prepare notarization API key
-        if: ${{ secrets.ASC_API_KEY != '' }}
+        if: steps.signing-materials.outputs.has_notary_api_key == 'true'
         env:
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
         run: |
@@ -93,7 +106,7 @@ jobs:
           echo "ORIGINAL_DEFAULT_KEYCHAIN_FILE=$RUNNER_TEMP/original_default_keychain" >> "$GITHUB_ENV"
 
       - name: Install signing certificate
-        if: ${{ secrets.MAC_CERT_P12 != '' }}
+        if: steps.signing-materials.outputs.has_mac_cert == 'true'
         env:
           MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
