@@ -103,8 +103,15 @@ jobs:
 
       - name: Capture original keychain state
         run: |
-          security list-keychains -d user | tr -d '"' > "$RUNNER_TEMP/original_keychains"
-          security default-keychain -d user | tr -d '"' > "$RUNNER_TEMP/original_default_keychain"
+          security list-keychains -d user \
+            | tr -d '"' \
+            | sed 's/^[[:space:]]*//' \
+            > "$RUNNER_TEMP/original_keychains"
+
+          security default-keychain -d user \
+            | tr -d '"' \
+            | sed 's/^[[:space:]]*//' \
+            > "$RUNNER_TEMP/original_default_keychain"
           echo "ORIGINAL_KEYCHAINS_FILE=$RUNNER_TEMP/original_keychains" >> "$GITHUB_ENV"
           echo "ORIGINAL_DEFAULT_KEYCHAIN_FILE=$RUNNER_TEMP/original_default_keychain" >> "$GITHUB_ENV"
 
@@ -161,7 +168,15 @@ jobs:
           fi
 
           security set-key-partition-list -S apple-tool:,apple: -s -k "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          EXISTING_KEYCHAINS=()
+          while IFS= read -r kc; do
+            kc=$(printf '%s' "$kc" | tr -d '"' | sed 's/^[[:space:]]*//')
+            if [ -n "$kc" ]; then
+              EXISTING_KEYCHAINS+=("$kc")
+            fi
+          done < <(security list-keychains -d user)
+
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "${EXISTING_KEYCHAINS[@]}"
           security default-keychain -d user -s "$KEYCHAIN_PATH"
 
           security find-identity -p codesigning "$KEYCHAIN_PATH"
@@ -211,7 +226,7 @@ jobs:
             rm -f "$NOTARY_API_KEY_PATH"
           fi
 
-          if security list-keychains -d user | tr -d '"' | grep -q "$KEYCHAIN_NAME"; then
+          if security list-keychains -d user | tr -d '"' | sed 's/^[[:space:]]*//' | grep -Fq "$KEYCHAIN_NAME"; then
             if [ -f "$KEYCHAIN_PATH" ]; then
               security delete-keychain "$KEYCHAIN_PATH" || true
             else
@@ -220,13 +235,35 @@ jobs:
           fi
 
           if [ -n "${ORIGINAL_KEYCHAINS_FILE:-}" ] && [ -s "$ORIGINAL_KEYCHAINS_FILE" ]; then
-            security list-keychains -d user -s $(tr '\n' ' ' < "$ORIGINAL_KEYCHAINS_FILE") || true
+            ORIGINAL_KEYCHAINS=()
+            while IFS= read -r kc; do
+              kc=$(printf '%s' "$kc" | sed 's/^[[:space:]]*//')
+              if [ -n "$kc" ]; then
+                ORIGINAL_KEYCHAINS+=("$kc")
+              fi
+            done < "$ORIGINAL_KEYCHAINS_FILE"
+
+            if [ "${#ORIGINAL_KEYCHAINS[@]}" -gt 0 ]; then
+              security list-keychains -d user -s "${ORIGINAL_KEYCHAINS[@]}" || true
+            fi
           fi
 
           if [ -n "${ORIGINAL_DEFAULT_KEYCHAIN_FILE:-}" ] && [ -s "$ORIGINAL_DEFAULT_KEYCHAIN_FILE" ]; then
-            security default-keychain -d user -s "$(cat "$ORIGINAL_DEFAULT_KEYCHAIN_FILE")" || true
+            ORIGINAL_DEFAULT_KEYCHAIN=$(sed -n '1p' "$ORIGINAL_DEFAULT_KEYCHAIN_FILE")
+            if [ -n "$ORIGINAL_DEFAULT_KEYCHAIN" ]; then
+              security default-keychain -d user -s "$ORIGINAL_DEFAULT_KEYCHAIN" || true
+            fi
           fi
 
           rm -f "$ORIGINAL_KEYCHAINS_FILE" "$ORIGINAL_DEFAULT_KEYCHAIN_FILE" 2>/dev/null || true
           rm -rf "$RUNNER_TEMP"/asc_api_key.p8 2>/dev/null || true
-          rm -rf .gocache .gomodcache
+
+          if [ -d .gocache ]; then
+            chmod -R u+w .gocache 2>/dev/null || true
+            rm -rf .gocache 2>/dev/null || true
+          fi
+
+          if [ -d .gomodcache ]; then
+            chmod -R u+w .gomodcache 2>/dev/null || true
+            rm -rf .gomodcache 2>/dev/null || true
+          fi

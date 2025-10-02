@@ -143,11 +143,31 @@ notarize_artifacts() {
       --wait \
       --output-format json >"$log_path"
 
-    log "Stapling notarization ticket to $(basename "$binary_path")"
-    xcrun stapler staple "$binary_path"
+    local staple_target=""
+    local stapled=false
 
-    log "Re-packaging ${archive_name}.zip with stapled binary"
-    package_artifact "$binary_path" "$archive_name" "$ext"
+    if [[ -d "$binary_path" ]] || [[ "$binary_path" == *.app ]] || [[ "$binary_path" == *.pkg ]] || [[ "$binary_path" == *.dmg ]]; then
+      staple_target="$binary_path"
+    elif [[ "$archive_path" == *.zip ]]; then
+      staple_target="$archive_path"
+    fi
+
+    if [[ -n "$staple_target" ]]; then
+      log "Attempting to staple notarization ticket to $(basename "$staple_target")"
+      if xcrun stapler staple "$staple_target"; then
+        stapled=true
+        log "Staple succeeded for $(basename "$staple_target")"
+      else
+        warn "Stapling failed for $(basename "$staple_target"); continuing without staple"
+      fi
+    else
+      warn "Stapling not supported for $(basename "$binary_path"); skipping"
+    fi
+
+    if [[ "$stapled" == true && "$staple_target" != "$archive_path" ]]; then
+      log "Re-packaging ${archive_name}.zip with stapled binary"
+      package_artifact "$binary_path" "$archive_name" "$ext"
+    fi
   done
 }
 
