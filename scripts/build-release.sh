@@ -143,30 +143,15 @@ notarize_artifacts() {
       --wait \
       --output-format json >"$log_path"
 
-    local staple_target=""
-    local stapled=false
-
     if [[ -d "$binary_path" ]] || [[ "$binary_path" == *.app ]] || [[ "$binary_path" == *.pkg ]] || [[ "$binary_path" == *.dmg ]]; then
-      staple_target="$binary_path"
-    elif [[ "$archive_path" == *.zip ]]; then
-      staple_target="$archive_path"
-    fi
-
-    if [[ -n "$staple_target" ]]; then
-      log "Attempting to staple notarization ticket to $(basename "$staple_target")"
-      if xcrun stapler staple "$staple_target"; then
-        stapled=true
-        log "Staple succeeded for $(basename "$staple_target")"
+      log "Stapling notarization ticket to $(basename "$binary_path")"
+      if xcrun stapler staple "$binary_path"; then
+        log "Staple succeeded for $(basename "$binary_path")"
       else
-        warn "Stapling failed for $(basename "$staple_target"); continuing without staple"
+        warn "Stapling reported a failure for $(basename "$binary_path"); artifact will remain notarized but unstapled"
       fi
     else
-      warn "Stapling not supported for $(basename "$binary_path"); skipping"
-    fi
-
-    if [[ "$stapled" == true && "$staple_target" != "$archive_path" ]]; then
-      log "Re-packaging ${archive_name}.zip with stapled binary"
-      package_artifact "$binary_path" "$archive_name" "$ext"
+      log "Skipping stapling for $(basename "$binary_path"); only app/pkg/dmg bundles support stapling"
     fi
   done
 }
