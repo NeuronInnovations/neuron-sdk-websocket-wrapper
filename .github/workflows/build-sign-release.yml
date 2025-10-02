@@ -21,7 +21,7 @@ jobs:
     runs-on: macos-latest
     env:
       GOPRIVATE: github.com/NeuronInnovations/*
-      GH_TOKEN: ${{ secrets.GH_PAT }}
+      GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || secrets.GITHUB_TOKEN }}
       SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
       NOTARY_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
       NOTARY_API_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER }}
@@ -202,16 +202,38 @@ jobs:
             dist/neuron-wrapper-darwin-arm64-notary.json
           if-no-files-found: ignore
 
-      - name: Attach assets to release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure GitHub release exists
         run: |
+          set -euo pipefail
+
+          RELEASE_TITLE="Neuron SDK Wrapper ${RELEASE_TAG}"
+          RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            cat >"$RELEASE_NOTES_FILE" <<EOF
+## Neuron SDK Wrapper ${RELEASE_TAG}
+
+- Universal macOS binaries signed and notarized (Intel & Apple Silicon)
+- Includes notarization summary JSON and SHA-256 checksums
+EOF
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$RELEASE_NOTES_FILE"
+          fi
+
+      - name: Upload assets to release
+        run: |
+          set -euo pipefail
+
           gh release upload "$RELEASE_TAG" \
+            dist/neuron-wrapper-darwin64 \
             dist/neuron-wrapper-darwin64.zip \
             dist/neuron-wrapper-darwin64.zip.sha256 \
+            dist/neuron-wrapper-darwin64-notary.json \
+            dist/neuron-wrapper-darwin-arm64 \
             dist/neuron-wrapper-darwin-arm64.zip \
             dist/neuron-wrapper-darwin-arm64.zip.sha256 \
+            dist/neuron-wrapper-darwin-arm64-notary.json \
             --clobber
 
       - name: Cleanup signing materials
