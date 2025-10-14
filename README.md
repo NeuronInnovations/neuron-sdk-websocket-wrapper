@@ -56,6 +56,52 @@ wscat -c ws://localhost:3002/buyer/p2p
 }
 ```
 
+## Building Release Binaries
+
+To publish binaries for different macOS architectures you can use the helper script in `scripts/build-release.sh`.
+
+### Prerequisites
+
+- Go 1.23 or newer installed locally (or use a CI runner).
+- Access to the private `github.com/NeuronInnovations` modules. When running in CI, export `GOPRIVATE=github.com/NeuronInnovations/*` and configure Git to use a personal access token:
+  ```bash
+  export GH_TOKEN="<personal access token with repo scope>"
+  git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+  ```
+
+### Build macOS binaries (Intel + Apple Silicon)
+
+```bash
+cd neuron-sdk-websocket-wrapper
+# Optional: customise GOCACHE/GOMODCACHE if required
+GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache ./scripts/build-release.sh
+```
+
+The script produces:
+
+- `dist/neuron-wrapper-darwin64` and `dist/neuron-wrapper-darwin64.zip`
+- `dist/neuron-wrapper-darwin-arm64` and `dist/neuron-wrapper-darwin-arm64.zip`
+- SHA256 checksum files alongside each archive
+
+The `.zip` artifacts can be uploaded directly to the GitHub release. The raw binaries remain in the same folder for local testing.
+
+### Upload to a GitHub release
+
+After running the script, attach the zipped artifacts to the desired release tag, for example using the CLI:
+
+```bash
+TAG=v1.0.3-split
+cd dist
+gh release upload ${TAG} \
+  neuron-wrapper-darwin64.zip neuron-wrapper-darwin64.zip.sha256 \
+  neuron-wrapper-darwin-arm64.zip neuron-wrapper-darwin-arm64.zip.sha256 \
+  --repo NeuronInnovations/neuron-sdk-websocket-wrapper
+```
+
+Alternatively, drag-and-drop the `dist/*.zip` files on the GitHub release page.
+
+---
+
 ## WebSocket Endpoints
 
 ### Buyer Endpoints

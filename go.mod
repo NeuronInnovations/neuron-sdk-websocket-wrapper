@@ -8,7 +8,6 @@ require (
 	github.com/NeuronInnovations/neuron-go-hedera-sdk v0.0.21
 	github.com/hashgraph/hedera-sdk-go/v2 v2.46.0
 	github.com/libp2p/go-libp2p v0.38.2
-
 )
 
 require (
@@ -154,4 +153,4 @@ require (
 )
 
 // uncomment this to work with a local copy of the SDK
-replace github.com/NeuronInnovations/neuron-go-hedera-sdk => ../neuron-go-hedera-sdk
+// replace github.com/NeuronInnovations/neuron-go-hedera-sdk => ../neuron-go-hedera-sdk

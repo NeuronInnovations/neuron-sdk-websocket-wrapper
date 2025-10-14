@@ -143,6 +143,7 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 		if isStreamClosed {
 			log.Printf("Stream seems to be closed for peer %s", peerID)
 			b.UpdateBufferLibP2PState(peerID, types.NewLibP2PState(types.LibP2PConnectionLost))
+			b.RemoveBuffer(peerID) // Clean up the buffer when stream is closed
 			break
 		}
 
@@ -287,7 +288,7 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 
 				// Send the message to the specific peer
 				log.Printf("Sending message to peer %s", targetPublicKey)
-				sendError := commonlib.WriteAndFlushBuffer(bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
+				sendError := commonlib.WriteAndFlushBuffer(*bufferInfo, targetPeerID, b, msgBytes, h, Protocol)
 				if sendError != nil {
 					// Send the public connectivity error message for the other peer's sdk to handle
 					hedera_msg.PeerSendErrorMessage(
