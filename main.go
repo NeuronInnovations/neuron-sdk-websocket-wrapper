@@ -142,7 +142,7 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 		isStreamClosed := network.Stream.Conn(stream).IsClosed()
 		if isStreamClosed {
 			log.Printf("Stream seems to be closed for peer %s", peerID)
-			b.MarkStreamFailed(peerID, "STREAM_CLOSED", "Stream connection was closed by remote peer")
+			b.UpdateBufferLibP2PState(peerID, types.NewLibP2PState(types.LibP2PConnectionLost))
 			break
 		}
 
@@ -156,14 +156,14 @@ func handleStream(stream network.Stream, b *commonlib.NodeBuffers, p2pToWS chan 
 		// Check for timeout
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// This is a timeout, which is expected
-				log.Printf("No data received from %s in 5 seconds, continuing...\n", peerID)
+				// This is a timeout, which is expected - add small delay to reduce CPU usage
+				time.Sleep(50 * time.Millisecond)
 				continue
 			}
 
-			// For other errors, log them
+			// For other errors, log them and break to avoid infinite error loop
 			log.Printf("Error reading from stream: %v\n", err)
-			continue
+			break
 		}
 
 		if n > 0 {
@@ -206,6 +206,8 @@ func handleP2PMessages(ctx context.Context, h host.Host, b *commonlib.NodeBuffer
 							}
 						}
 					}
+					// Add a small delay to prevent 100% CPU usage
+					time.Sleep(100 * time.Millisecond)
 				}
 			}
 		}()

@@ -157,9 +157,10 @@ tmux send-keys -t neuron-test:0.0 "echo 'P2P Port: 1354'" Enter
 tmux send-keys -t neuron-test:0.0 "echo '=============================='" Enter
 tmux send-keys -t neuron-test:0.0 "go run . --port=1354 --mode=peer --buyer-or-seller=seller --envFile=.seller-env --use-local-address --ws-port=3001" Enter
 
-# Wait for seller to start
-print_status "Waiting 10 seconds for seller to initialize..."
-sleep 10
+# Wait for seller to start using HashScan heartbeat check
+print_status "Waiting for seller heartbeat via HashScan..."
+./integrationtests/check-seller-heartbeat.sh
+print_success "Seller heartbeat detected! Starting buyer..."
 
 # Top-right: Buyer Node
 tmux send-keys -t neuron-test:0.1 "echo '🔵 BUYER NODE - Starting...'" Enter
@@ -244,7 +245,7 @@ print_info "  Ctrl+b then x - Kill current pane"
 print_info "  Ctrl+b then d - Detach from session"
 print_info "  Ctrl+b then : - Enter command mode"
 print_info ""
-print_info "⏱️  Wait for P2P connection to establish (about 10-15 seconds)"
+print_info "⏱️  Smart waiting: Will wait until seller heartbeat is detected on HashScan"
 print_info "🎮 All bottom panes are listening for WebSocket messages"
 print_info "📤 Send commands from other terminals to see responses here"
 print_info "🔍 Commands panes listen to /commands endpoints"
