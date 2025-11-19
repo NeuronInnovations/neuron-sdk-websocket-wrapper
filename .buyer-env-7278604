@@ -1,0 +1,9 @@
+eth_rpc_url=https://testnet.hashio.io/api
+hedera_evm_id=576d1d564c7222be218abf176d08e2190a6d6343
+hedera_id=0.0.7278604
+list_of_sellers=03c56bfbd21b51209b9fba8b2fa9cfc59915f341b39969acf05183d8d6a43f1b5f
+location={"lat":10.8231,"lon":106.6297,"alt":0.000000}
+mirror_api_url=https://testnet.mirrornode.hedera.com/api/v1
+private_key=148e1b3f6ee95cd919f79c338927d742405900f432ae025decb0fd1397bffafb
+smart_contract_address=0xFcBC43d2207580F82c07aE2E09e9d0cA0211B048
+
