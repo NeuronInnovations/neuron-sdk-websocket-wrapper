@@ -1,4 +1,0 @@
-- Follow idiomatic Go style; repository relies on standard formatting via `gofmt`/`goimports` and conventional package layout as everything lives in `main.go`.
-- Logging centralised through `log` with custom location writer; retains structured JSON payloads for WebSocket interactions.
-- CLI flags defined with `spf13/pflag`; WebSocket messages use explicit struct tags for JSON fields.
-- Shell scripts in `integrationtests/` and `scripts/` assume `bash`/`zsh`, `set -euo pipefail`, and prefer explicit environment variable configuration.

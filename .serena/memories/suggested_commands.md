@@ -1,5 +1,0 @@
-- `go run . --ws-port=3001 --buyer-or-seller=seller --envFile=.seller-env` – run the seller WebSocket wrapper locally (buyer variant switches flags and port 3002).
-- `./integrationtests/start-seller.sh` / `./integrationtests/start-buyer.sh` – helper launchers that kill conflicting ports then run the wrapper with pre-set flags.
-- `go build ./...` – compile the wrapper; use environment variables `GOCACHE` and `GOMODCACHE` if you need deterministic caches.
-- `GOCACHE=$(pwd)/.gocache GOMODCACHE=$(pwd)/.gomodcache ./scripts/build-release.sh` – produce macOS release binaries and zip artifacts under `dist/`.
-- `go fmt ./...` and `go test ./...` – standard formatting and testing commands (no unit tests yet, but run to ensure compilation).

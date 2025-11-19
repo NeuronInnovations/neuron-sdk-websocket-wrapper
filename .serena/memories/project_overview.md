@@ -1,4 +1,0 @@
-- Go 1.23 project providing a WebSocket wrapper around the private `github.com/NeuronInnovations/neuron-go-hedera-sdk`, exposing buyer/seller P2P messaging and command endpoints.
-- Primary entrypoint is `main.go` which bridges Gorilla WebSocket clients with libp2p streams via the Neuron SDK and Hedera integrations.
-- Repo structure: runtime code in `main.go`, helper scripts in `scripts/` (e.g., release builds), integration launch scripts in `integrationtests/`, env templates in root for buyer/seller nodes, and release artifacts under `dist/`.
-- Requires access to private Neuron modules and Hedera/libp2p dependencies (declared in `go.mod`).

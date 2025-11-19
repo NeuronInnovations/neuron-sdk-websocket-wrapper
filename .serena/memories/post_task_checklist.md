@@ -1,5 +1,0 @@
-- Run `go test ./...` (or at least `go build ./...`) to ensure the wrapper still compiles, since there are currently no unit tests.
-- If scripts or release tooling changed, execute `./scripts/build-release.sh` to confirm macOS binaries package correctly.
-- For integration-level changes, start buyer/seller via `./integrationtests/start-*.sh` and exercise WebSocket endpoints (e.g., via `wscat`).
-- Verify `.buyer-env` / `.seller-env` templates remain aligned with environment variable expectations when touching config-related code.
-- Clean up `dist/` artifacts or cache directories if they were created during testing unless they are intentionally updated.
